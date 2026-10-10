@@ -62,7 +62,7 @@ export default function GastroBot({ standalone = false }) {
     storeHistory(outgoing);
     try {
       const history = outgoing.slice(-12).map((message) => ({ role: message.sender === 'user' ? 'user' : 'assistant', content: message.text }));
-      const response = await chatCompletion({ messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...history], max_tokens: 700, temperature: 0.5 });
+      const response = await chatCompletion({ messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...history], max_tokens: 1000, temperature: 0.5 });
       const answer = response.content?.trim() || localFallback(prompt);
       const updated = [...outgoing, { id: `${Date.now()}-b`, sender: 'bot', text: answer }];
       setMessages(updated);
