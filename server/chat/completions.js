@@ -7,8 +7,19 @@ const MAX_MESSAGE_TEXT_LENGTH = 4000;
 const MAX_CONVERSATION_TEXT_LENGTH = 16000;
 const MAX_RESPONSE_TOKENS = 1000;
 
+const messageContent = (message) => {
+  if (typeof message.content === 'string') return message.content;
+  if (Array.isArray(message.content)) return message.content.map((part) => part.text || '').join('\n');
+  return String(message.content ?? '');
+};
+
+const getSystemInstruction = (messages) => messages
+  .filter((message) => message.role === 'system')
+  .map(messageContent)
+  .join('\n\n');
+
 const normalizeMessagesText = (messages) => {
-  return messages.map((message) => {
+  return messages.filter((message) => message.role !== 'system').map((message) => {
     if (typeof message.content === 'string') return `${message.role}: ${message.content}`;
     if (Array.isArray(message.content)) {
       return `${message.role}: ${message.content.map((part) => part.text || '').join('\n')}`;
@@ -21,15 +32,22 @@ const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7, model
   const apiKey = globalThis.process?.env?.GEMINI_API_KEY;
   if (!apiKey) return null;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey
+    },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: normalizeMessagesText(messages) }] }],
-      generationConfig: {
-        maxOutputTokens: max_tokens,
+      model,
+      input: normalizeMessagesText(messages),
+      system_instruction: getSystemInstruction(messages),
+      generation_config: {
+        max_output_tokens: max_tokens,
+        thinking_level: 'low',
         temperature
-      }
+      },
+      store: false
     })
   });
 
@@ -40,10 +58,11 @@ const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7, model
     throw error;
   }
 
-  const content = data?.candidates?.[0]?.content?.parts
-    ?.map((part) => part.text || '')
-    .join('')
-    .trim() || '';
+  const content = (data?.output_text || data?.output
+    ?.filter((step) => step.type === 'message' && (!step.role || step.role === 'assistant'))
+    .flatMap((step) => step.content || [])
+    .map((part) => part.text || '')
+    .join('') || '').trim();
 
   if (!content) throw new Error('Gemini tidak mengembalikan teks.');
   return { ok: true, content, model };
