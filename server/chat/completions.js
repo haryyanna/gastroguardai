@@ -58,15 +58,20 @@ const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7, model
     throw error;
   }
 
-  const outputSteps = data?.steps?.filter((step) => step.type === 'model_output') || data?.output
+  const interaction = data?.interaction || data;
+  const outputSteps = interaction?.steps?.filter((step) => step.type === 'model_output') || interaction?.output
     ?.filter((step) => step.type === 'message' && (!step.role || step.role === 'assistant'));
-  const content = (data?.output_text || outputSteps
+  const content = (interaction?.output_text || outputSteps
     ?.flatMap((step) => step.content || [])
-    .filter((part) => part.type === 'text')
+    .filter((part) => !part.type || part.type === 'text')
     .map((part) => part.text || '')
     .join('') || '').trim();
 
-  if (!content) throw new Error('Gemini tidak mengembalikan teks.');
+  if (!content) {
+    const providerError = interaction?.errors?.map((item) => item.message).filter(Boolean).join('; ');
+    const stepTypes = interaction?.steps?.map((step) => step.type).filter(Boolean).join(',') || 'none';
+    throw new Error(providerError || `Gemini tidak mengembalikan teks (status ${interaction?.status || 'unknown'}, langkah ${stepTypes}).`);
+  }
   return { ok: true, content, model };
 };
 
