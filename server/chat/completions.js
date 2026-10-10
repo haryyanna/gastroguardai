@@ -58,9 +58,11 @@ const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7, model
     throw error;
   }
 
-  const content = (data?.output_text || data?.output
-    ?.filter((step) => step.type === 'message' && (!step.role || step.role === 'assistant'))
-    .flatMap((step) => step.content || [])
+  const outputSteps = data?.steps?.filter((step) => step.type === 'model_output') || data?.output
+    ?.filter((step) => step.type === 'message' && (!step.role || step.role === 'assistant'));
+  const content = (data?.output_text || outputSteps
+    ?.flatMap((step) => step.content || [])
+    .filter((part) => part.type === 'text')
     .map((part) => part.text || '')
     .join('') || '').trim();
 
