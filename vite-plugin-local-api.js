@@ -27,10 +27,20 @@ const sendJson = (res, statusCode, payload) => {
 };
 
 const ROUTES = {
-  '/api/chat/completions': './api/chat/completions.js',
-  '/api/fatsecret/analyze': './api/fatsecret/analyze.js',
-  '/api/fatsecret/search': './api/fatsecret/search.js',
-  '/api/health': './api/health.js'
+  '/api/admin/delete-user': './server/admin/delete-user.js',
+  '/api/admin/users': './server/admin/users.js',
+  '/api/chat/completions': './server/chat/completions.js',
+  '/api/checkins/create': './server/checkins/create.js',
+  '/api/checkins/has-today': './server/checkins/has-today.js',
+  '/api/community/create': './server/community/create.js',
+  '/api/community/delete': './server/community/delete.js',
+  '/api/community/like': './server/community/like.js',
+  '/api/community/list': './server/community/list.js',
+  '/api/community/update': './server/community/update.js',
+  '/api/fatsecret/analyze': './server/fatsecret/analyze.js',
+  '/api/fatsecret/search': './server/fatsecret/search.js',
+  '/api/health': './server/health.js',
+  '/api/users/ensure': './server/users/ensure.js'
 };
 
 const loadEnv = () => {

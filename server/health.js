@@ -1,11 +1,11 @@
-import { json, requireSql } from './_lib/db.js';
+import { json } from './_lib/http.js';
 
 export default async function handler(req, res) {
-  try {
-    const sql = requireSql();
-    await sql`select 1 as ok`;
-    return json(res, 200, { ok: true, provider: 'neon' });
-  } catch (error) {
-    return json(res, 500, { ok: false, error: error.message || 'Health check failed' });
-  }
+  if (req.method !== 'GET') return json(res, 405, { ok: false, error: 'Method not allowed' });
+  const providers = {
+    gemini: Boolean(globalThis.process?.env?.GEMINI_API_KEY),
+    cerebras: Boolean(globalThis.process?.env?.CEREBRAS_API_KEY),
+    fatsecret: Boolean(globalThis.process?.env?.FATSECRET_CLIENT_ID && globalThis.process?.env?.FATSECRET_CLIENT_SECRET)
+  };
+  return json(res, 200, { ok: true, api: 'ready', providers });
 }

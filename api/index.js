@@ -32,15 +32,10 @@ const routes = new Map([
 ]);
 
 export default async function handler(req, res) {
-  let route;
-  try {
-    const pathname = new URL(req.url || '/', 'https://vercel.invalid').pathname;
-    route = decodeURIComponent(pathname.replace(/^\/api\/?/, '').replace(/\/+$/, ''));
-  } catch {
-    return json(res, 400, { ok: false, error: 'Invalid API route' });
-  }
+  const rawRoute = req.query?.route;
+  const route = Array.isArray(rawRoute) ? rawRoute.join('/') : String(rawRoute || '');
+  const routeHandler = routes.get(route.replace(/^\/+|\/+$/g, ''));
 
-  const routeHandler = routes.get(route);
   if (!routeHandler) {
     return json(res, 404, { ok: false, error: 'API route not found' });
   }

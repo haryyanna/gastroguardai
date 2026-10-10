@@ -6,7 +6,7 @@ Vercel is required for the AI scan and chatbot because it hosts both the static 
 
 1. In Vercel, choose **Add New → Project** and import `haryyanna/gastroguardai`.
 2. Keep the project root at the repository root.
-3. The included `vercel.json` configures the Vite build and `dist` output. All existing `/api/...` routes are dispatched through one catch-all function in `api/[...route].js`, so the project stays under the Hobby plan's 12-function deployment limit.
+3. The included `vercel.json` configures the Vite build, `dist` output, and explicitly rewrites all `/api/...` URLs to the single dispatcher at `/api/index`. This keeps deployment under the Hobby plan's 12-function limit while preserving the existing API URLs.
 4. Deploy the project. Pushing to `main` will trigger future deployments.
 
 ## 2. Add server environment variables
@@ -50,10 +50,11 @@ The repository configures:
 
 After deploying, open the Vercel URL:
 
-1. In **GastroBot**, send a question and confirm a provider response appears (not the local fallback notice).
-2. In **Scan Makanan & Minuman**, capture/upload a photo and confirm the server identifies it and returns a catalog/nutrition result.
-3. Search or manually select a catalog drink, then analyze to verify the drink nutrition display.
-4. If provider variables were added after the first deployment, redeploy the Production deployment.
+1. Open `/api/health`. Confirm it returns `{"ok":true,"api":"ready",...}`. The response only shows whether each server provider is configured; it never returns keys.
+2. In **GastroBot**, send a question and confirm a provider response appears (not the local fallback notice).
+3. In **Scan Makanan & Minuman**, capture/upload a photo and confirm the server identifies it and returns a catalog/nutrition result.
+4. Search or manually select a catalog drink, then analyze to verify the drink nutrition display.
+5. If provider variables were added after the first deployment, redeploy the latest Production deployment.
 
 Set provider-side quotas/usage alerts. These public API routes call paid/limited AI services; never expose their server keys to the browser.
 
