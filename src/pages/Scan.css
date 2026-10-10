@@ -896,3 +896,27 @@
 .scan-data-source{margin:12px 0;color:#82918c;font-size:10px;line-height:1.5}
 .scan-insight-item p{line-height:1.55}
 @media(max-width:520px){.scan-container{padding:18px 13px 36px}.scan-header{margin-bottom:18px;padding-top:18px}.scan-header .title{font-size:22px}.scan-header .subtitle{font-size:12px}.gemini-key-card{padding:12px}.gemini-key-heading b{font-size:11px}.scan-visual-note{padding:9px}.camera-viewport-card{border-radius:18px}}
+.scan-container,.drink-selector-wrapper,.selector-grid,.camera-viewport-card,.scan-result-card,.result-header,.scan-insight-item,.nutrition-details-table{min-width:0;max-width:100%;box-sizing:border-box}
+.food-search-input,.select-chip,.scan-result-card,.result-header,.scan-insight-item,.scan-data-source,.tips-section-block{overflow-wrap:anywhere}
+.result-header>div{min-width:0}
+.result-meta-strip{min-width:0}
+@media(max-width:520px){
+  .drink-selector-wrapper{padding:14px}
+  .selector-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .select-chip{min-width:0;width:100%;justify-content:flex-start;padding:9px 10px;font-size:11px;line-height:1.35;text-align:left}
+  .select-chip>span{flex:none}
+  .food-search-input{font-size:16px}
+  .camera-viewport-card{aspect-ratio:4/5;min-height:0}
+  .camera-viewport-card:has(.scan-result-card){aspect-ratio:auto;min-height:0}
+  .scan-result-card{height:auto;max-height:none;overflow:visible;padding:14px}
+  .result-header{gap:10px;padding:11px}
+  .result-emoji{flex:none;font-size:42px}
+  .drink-title{font-size:16px;line-height:1.3}
+  .drink-cat{font-size:10px;line-height:1.4}
+  .result-badge{max-width:100%;font-size:9px;line-height:1.4;white-space:normal}
+  .scan-insight-item{gap:8px}
+  .scan-insight-item>div{min-width:0}
+  .scan-insight-item p,.tips-section-block p{overflow-wrap:anywhere}
+  .nutrition-details-table{width:100%}
+}
+@media(max-width:360px){.scan-container{padding-right:10px;padding-left:10px}.drink-selector-wrapper{padding:12px}.select-chip{padding:8px;font-size:10px}.scan-result-card{padding:12px}}

@@ -28,3 +28,10 @@
 .gg-herbal-chat-form button:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:760px){.gg-herb-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.gg-herb-grid{grid-template-columns:1fr}.gg-herbal-chat-message{max-width:96%}}
+.gg-herbal-chat,.gg-herbal-chat-title,.gg-herbal-chat-title>div,.gg-herbal-chat-log,.gg-herbal-chat-message{min-width:0;max-width:100%;box-sizing:border-box}
+.gg-herbal-chat-message{width:fit-content;overflow-wrap:anywhere;word-break:normal}
+.gg-herbal-chat-form{width:100%;min-width:0;box-sizing:border-box}
+.gg-herbal-chat-form>svg{flex:none}
+.gg-herbal-chat-form input{font-size:16px}
+.gg-herbal-chat-form button{width:36px;height:36px;flex:none}
+@media(max-width:480px){.gg-herbal-chat{gap:10px}.gg-herbal-chat-log{max-height:min(38dvh,260px)}.gg-herbal-chat-message,.gg-herbal-chat-message.user{max-width:100%;font-size:13px;padding:10px 12px}.gg-herbal-chat-title b{font-size:13px}.gg-herbal-chat-title small{font-size:10px;line-height:1.45}}
