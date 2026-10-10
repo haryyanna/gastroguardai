@@ -30,7 +30,9 @@ GitHub does not load environment variables from a repository folder. To configur
 - Use **Variables** only for non-secret settings.
 - A secret is available to a workflow only when that workflow explicitly references it. Never pass a server secret into a `VITE_*` variable: Vite embeds `VITE_*` values in public browser files.
 
-The current GitHub Pages workflow publishes a static frontend and does not consume these server secrets or deploy the functions in `api/`. Adding secrets to GitHub alone will not make those API routes available on GitHub Pages. Deploy the frontend and API routes to a provider that supports the project's serverless API (for example, Vercel), and add the same server-side variables in that provider's project settings. Set `VITE_API_BASE_URL` to the public base URL of that API when the frontend and API use different origins.
+The GitHub Pages workflow publishes a static frontend and does not deploy the functions in `api/`. It passes `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from GitHub Actions Secrets into the build. Those values are included in public browser code and are not server secrets; protect Supabase data with correct Row Level Security policies.
+
+The API routes in `api/` need a backend host such as Vercel. GitHub Pages cannot run them, and the server secrets above are intentionally not passed into the frontend build. To enable those API-backed features, deploy the frontend and API routes to a provider that supports serverless functions and configure the private values in that provider's project settings.
 
 Firebase web configuration and the Supabase anon key are client-side values, not server secrets. Protect their use with Firebase/Supabase security rules and provider-side restrictions. Never put a Supabase `service_role` key in a `VITE_*` variable.
 
