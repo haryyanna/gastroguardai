@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless';
+export { json } from './http.js';
 
-const connectionString = process.env.NEON_DATABASE_URL || '';
+const connectionString = globalThis.process?.env?.NEON_DATABASE_URL || '';
 
 if (!connectionString) {
   console.warn('NEON_DATABASE_URL is not set. API routes will fail until configured.');
@@ -13,10 +14,6 @@ export const requireSql = () => {
     throw new Error('NEON_DATABASE_URL belum dikonfigurasi.');
   }
   return sql;
-};
-
-export const json = (res, statusCode, payload) => {
-  res.status(statusCode).json(payload);
 };
 
 export const normalizeUsername = (value) => String(value || '').trim();

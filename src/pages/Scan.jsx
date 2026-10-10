@@ -1,47 +1,57 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, Sparkles, AlertTriangle, RotateCcw, Upload, SwitchCamera, ScanLine, Lightbulb, BookOpenCheck, ArrowLeft, KeyRound } from 'lucide-react';
+import { Camera, Sparkles, AlertTriangle, RotateCcw, Upload, SwitchCamera, ScanLine, Lightbulb, BookOpenCheck, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { enqueueSheetsBackup } from '../lib/sheetsBackup';
-import { analyzeDrinkImage } from '../lib/nutriApi';
-import { prepareBrowserFoodRecognition, recognizeFoodInBrowser } from '../lib/browserFoodRecognition';
+import { analyzeFoodOrDrinkImage } from '../lib/nutriApi';
+import { recognizeFoodInBrowser } from '../lib/browserFoodRecognition';
 import { VERIFIED_FOODS, findVerifiedFood, normalizeFoodData } from '../../data/verifiedFoods';
+import { VERIFIED_DRINKS } from '../data/verifiedDrinks';
 import './Scan.css';
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
-const foodNames = VERIFIED_FOODS.map((food) => food.name);
+const SCAN_CATALOG = [
+  ...VERIFIED_FOODS.map((item) => ({ ...item, isDrink: false, scanKey: `food:${item.id}` })),
+  ...VERIFIED_DRINKS.map((item) => ({ ...item, isDrink: true, scanKey: `drink:${item.id}` }))
+];
+const MAX_IMAGE_DATA_URL_LENGTH = 3_700_000;
+const normalizeScanItem = (item, source) => {
+  if (item?.isDrink) {
+    return {
+      ...item,
+      source,
+      isFood: false,
+      isDrink: true,
+      safetyTips: item.tips,
+      servingRecommendation: item.servingDescription,
+      additionalRecommendations: [],
+      allergens: ''
+    };
+  }
+  return normalizeFoodData({ ...item, source });
+};
+const encodeScanImage = (sourceCanvas) => {
+  let width = sourceCanvas.width;
+  let height = sourceCanvas.height;
+  const qualities = [0.82, 0.72, 0.62, 0.52];
 
-async function identifyFoodWithGemini(imageDataUrl, apiKey) {
-  const [header, imageB64] = imageDataUrl.split(',');
-  const mimeType = header.match(/^data:(.*?);base64$/)?.[1];
-  if (!mimeType || !imageB64) throw new Error('Foto tidak dapat dibaca. Silakan unggah ulang gambar.');
+  for (let resizeAttempt = 0; resizeAttempt < 8; resizeAttempt += 1) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d').drawImage(sourceCanvas, 0, 0, width, height);
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        parts: [
-          { text: `Identifikasi hidangan utama pada foto. Pilih identifiedFood hanya dari daftar ini dan jangan membuat data gizi atau klaim keamanan: ${foodNames.join(', ')}. Jika tidak cukup jelas atau tidak ada kecocokan, isi null. confidence berupa angka 0 sampai 1 berdasarkan keyakinan visual. visibleCondition hanya deskripsi yang benar-benar tampak; jangan menyimpulkan bebas kuman, aman, segar, komposisi, alergen, atau cara penyiapan yang tidak terlihat. Balas hanya JSON valid: {"identifiedFood": string|null, "confidence": number, "visibleCondition": string, "reason": string}` },
-          { inline_data: { mime_type: mimeType, data: imageB64 } },
-        ],
-      }],
-      generationConfig: { temperature: 0.1, responseMimeType: 'application/json', maxOutputTokens: 300 },
-    }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error?.message || `Gemini API mengembalikan HTTP ${response.status}.`);
-  const text = data?.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('').trim();
-  if (!text) throw new Error('Gemini tidak mengembalikan hasil identifikasi. Coba unggah foto lain.');
-  let analysis;
-  try { analysis = JSON.parse(text); } catch { throw new Error('Hasil Gemini tidak dapat dibaca. Coba analisis kembali.'); }
-  const confidence = Number(analysis.confidence);
-  return {
-    food: confidence >= 0.55 && typeof analysis.identifiedFood === 'string' ? findVerifiedFood(analysis.identifiedFood) : undefined,
-    confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0,
-    visibleCondition: typeof analysis.visibleCondition === 'string' ? analysis.visibleCondition : '',
-    reason: typeof analysis.reason === 'string' ? analysis.reason : '',
-  };
-}
+    for (const quality of qualities) {
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      if (dataUrl.length <= MAX_IMAGE_DATA_URL_LENGTH) return dataUrl;
+    }
+
+    if (Math.max(width, height) <= 512) break;
+    const scale = Math.min(0.8, 512 / Math.max(width, height));
+    width = Math.max(1, Math.round(width * scale));
+    height = Math.max(1, Math.round(height * scale));
+  }
+
+  throw new Error('Foto terlalu besar untuk dianalisis. Pilih foto dengan resolusi lebih rendah.');
+};
 
 const Scan = () => {
   const videoRef = useRef(null), canvasRef = useRef(null), inputRef = useRef(null), streamRef = useRef(null);
@@ -53,9 +63,6 @@ const Scan = () => {
   const [photo, setPhoto] = useState(''), [selectedFoodId, setSelectedFoodId] = useState('');
   const [showAllFoods, setShowAllFoods] = useState(false), [foodSearch, setFoodSearch] = useState('');
   const [scanSteps, setScanSteps] = useState(''), [progress, setProgress] = useState(0), [scannedFood, setScannedFood] = useState(null);
-  const [recognizerReady, setRecognizerReady] = useState(false);
-  const [geminiApiKey, setGeminiApiKey] = useState(() => sessionStorage.getItem('gastroguard_gemini_key') || '');
-
   const stopCamera = useCallback(() => {
     cameraAttemptRef.current += 1;
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -90,13 +97,6 @@ const Scan = () => {
     }
   }, [facingMode, stopCamera]);
   useEffect(() => { startCamera(); return stopCamera; }, [startCamera, stopCamera]);
-  useEffect(() => {
-    let active = true;
-    prepareBrowserFoodRecognition()
-      .then(() => { if (active) setRecognizerReady(true); })
-      .catch((error) => console.warn('Model pengenalan makanan belum siap:', error));
-    return () => { active = false; };
-  }, []);
 
   const capturePhoto = () => {
     const video = videoRef.current, canvas = canvasRef.current;
@@ -104,7 +104,13 @@ const Scan = () => {
     const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
     canvas.width = Math.round(video.videoWidth * scale); canvas.height = Math.round(video.videoHeight * scale);
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    setPhoto(canvas.toDataURL('image/jpeg', 0.82)); stopCamera(); setCameraState('preview');
+    try {
+      setPhoto(encodeScanImage(canvas));
+      stopCamera();
+      setCameraState('preview');
+    } catch (error) {
+      setCameraError(error.message);
+    }
   };
   const handleUpload = (event) => {
     const file = event.target.files?.[0]; if (!file) return;
@@ -127,9 +133,14 @@ const Scan = () => {
         context.fillRect(0, 0, canvas.width, canvas.height);
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
         setCameraError('');
-        setPhoto(canvas.toDataURL('image/jpeg', 0.82));
-        stopCamera();
-        setCameraState('preview');
+        try {
+          setPhoto(encodeScanImage(canvas));
+          stopCamera();
+          setCameraState('preview');
+        } catch (error) {
+          setCameraError(error.message);
+          setCameraState('error');
+        }
       };
       image.onerror = () => {
         setCameraError('Format foto tidak didukung browser ini. Simpan foto sebagai JPEG atau PNG, lalu pilih kembali.');
@@ -176,7 +187,7 @@ const Scan = () => {
     if (!photo) return;
     setCameraState('scanning');
     setProgress(8);
-    const steps = ['Mengirim foto dengan aman...', 'Mengenali makanan dan label...', 'Mencari data gizi dari database...', 'Menghitung ringkasan nutrisi...'];
+    const steps = ['Mengirim foto ke server...', 'Mengenali makanan atau minuman...', 'Mencari data gizi...', 'Menyiapkan ringkasan nutrisi...'];
     let index = 0;
     let usingBrowserRecognition = false;
     setScanSteps(steps[index]);
@@ -188,41 +199,19 @@ const Scan = () => {
     }, 900);
 
     try {
-      const selectedFood = VERIFIED_FOODS.find((item) => item?.id === selectedFoodId);
+      const selectedFood = SCAN_CATALOG.find((item) => item.scanKey === selectedFoodId);
       const matchedFood = selectedFood || findVerifiedFood(selectedFoodId || 'makanan');
-      if (geminiApiKey.trim()) {
-        setScanSteps('Mengenali hidangan dengan Gemini, lalu mencocokkan katalog...');
-        const visual = await identifyFoodWithGemini(photo, geminiApiKey.trim());
-        const identifiedFood = visual.food || selectedFood;
-        if (!identifiedFood) throw new Error('Foto belum dapat dicocokkan dengan katalog. Coba foto lebih jelas atau pilih makanan secara manual.');
-        const food = normalizeFoodData({
-          ...identifiedFood,
-          source: visual.food ? 'Gemini Vision + Database Makanan Ranstal' : 'Pilihan manual · Gemini tidak menemukan kecocokan',
-          visualAnalysis: visual,
-        });
-        setScannedFood(food);
-        setProgress(100);
-        saveScanToHistory(food);
-        setCameraState('result');
-        setCameraError('');
-        return;
-      }
       let result = null;
       let analysisError = null;
       let browserRecognition = null;
-      // GitHub Pages only hosts static files; its missing API route can time
-      // out before browser recognition starts. Go straight to the local path.
-      const hasSameOriginApi = !window.location.hostname.endsWith('github.io');
-      if (hasSameOriginApi) {
-        try {
-          result = await analyzeDrinkImage({
-            imageB64: photo,
-            searchHint: matchedFood?.name || '',
-            drinkKey: selectedFoodId
-          });
-        } catch (error) {
-          analysisError = error;
-        }
+      try {
+        result = await analyzeFoodOrDrinkImage({
+          imageB64: selectedFoodId ? '' : photo,
+          searchHint: matchedFood?.name || '',
+          catalogKey: selectedFoodId
+        });
+      } catch (error) {
+        analysisError = error;
       }
       if (!result?.result && !matchedFood) {
         try {
@@ -239,7 +228,7 @@ const Scan = () => {
       }
       if (!valueToAnalyze) throw new Error('Makanan belum teridentifikasi. Pilih jenis makanan yang paling sesuai, lalu coba lagi.');
       const source = result?.source || (browserRecognition ? 'browser-vision-prediction' : 'Database Makanan Ranstal');
-      const food = normalizeFoodData({ ...valueToAnalyze, source });
+      const food = normalizeScanItem(valueToAnalyze, source);
 
       setScannedFood(food);
       setProgress(100);
@@ -258,13 +247,15 @@ const Scan = () => {
 
   const resetScanner = () => { setPhoto(''); setProgress(0); setScannedFood(null); setSelectedFoodId(''); startCamera(); };
   const normalizedFoodSearch = foodSearch.trim().toLowerCase();
-  const visibleFoods = VERIFIED_FOODS.filter((item) => {
-    if (!normalizedFoodSearch) return showAllFoods || VERIFIED_FOODS.indexOf(item) < 5;
+  const visibleFoods = SCAN_CATALOG.filter((item) => {
+    if (!normalizedFoodSearch) return showAllFoods || SCAN_CATALOG.indexOf(item) < 5;
     const terms = [item.name, ...(item.terms || []), ...(item.searchTerms || [])].join(' ').toLowerCase();
     return terms.includes(normalizedFoodSearch);
   });
   const food = scannedFood;
-  const safetyInterpretation = food?.status === 'Sangat Aman'
+  const safetyInterpretation = food?.isDrink
+      ? 'Informasi gula dan kalori ini adalah perkiraan katalog per sajian, bukan hasil pembacaan label produk. Foto tidak memastikan kandungan, kebersihan, atau keamanan minuman.'
+    : food?.status === 'Sangat Aman'
       ? 'Label ini adalah ringkasan katalog, bukan jaminan higienitas. Pastikan makanan matang sempurna, tersaji segar, dan sesuai alergi serta kondisi kesehatanmu.'
     : food?.status === 'Perlu Hati-hati'
         ? 'Periksa cara penyajian, kematangan, kebersihan, ukuran porsi, dan bahan pemicu alergi. Foto saja tidak dapat memastikan makanan bebas kuman.'
@@ -278,35 +269,33 @@ const Scan = () => {
         <Link to="/" className="scan-back-link"><ArrowLeft size={17}/> Beranda</Link>
         <div className="feature-heading">
           <ScanLine className="feature-heading-icon" />
-          <h2 className="title">Scan Makanan</h2>
+          <h2 className="title">Scan Makanan & Minuman</h2>
         </div>
-        <p className="subtitle">Cocokkan foto dengan katalog makanan dan pelajari faktor keamanan pangan.</p>
+        <p className="subtitle">Kenali makanan dan minuman dari foto, lalu cocokkan dengan katalog gizi.</p>
       </header>
 
       <section className="gemini-key-card">
-        <div className="gemini-key-heading"><KeyRound size={18}/><span><b>Analisis foto dengan Gemini</b><small>Opsional · kunci disimpan hanya di tab/peramban ini</small></span></div>
-        <label htmlFor="gemini-api-key">Gemini API key</label>
-        <input id="gemini-api-key" type="password" autoComplete="off" value={geminiApiKey} onChange={(event) => { setGeminiApiKey(event.target.value); sessionStorage.setItem('gastroguard_gemini_key', event.target.value); }} placeholder="Tempel API key Gemini di sini" />
-        <small>Foto dikirim langsung ke Google Gemini untuk identifikasi visual. Hasil hanya dicocokkan dengan katalog lokal; nutrisi dan keamanan tidak dibuat oleh AI. Jangan masukkan key pada perangkat bersama.</small>
+        <div className="gemini-key-heading"><Sparkles size={18}/><span><b>Identifikasi AI di server</b><small>Foto dianalisis lewat backend; API key tidak disimpan di browser.</small></span></div>
+        <small>Hasil identifikasi dicocokkan dengan katalog gizi makanan dan minuman. Perkiraan gizi maupun foto tidak dapat memastikan kebersihan atau keamanan pangan.</small>
       </section>
       
       <div className="drink-selector-wrapper">
-        <label>Pilih makanan jika scan otomatis belum tersedia</label>
+        <label>Pilih makanan atau minuman jika scan otomatis belum tersedia</label>
         <input
           className="food-search-input"
           value={foodSearch}
           onChange={(event) => setFoodSearch(event.target.value)}
-          placeholder="Cari nasi, apel, ayam, buah..."
-          aria-label="Cari makanan"
+          placeholder="Cari nasi, apel, ayam, air kelapa, teh..."
+          aria-label="Cari makanan atau minuman"
         />
         <div className="selector-grid">
           {visibleFoods.map((item) => (
             <button 
-              key={item.id} 
-              className={`select-chip ${selectedFoodId === item.id ? 'active' : ''}`} 
-              onClick={() => setSelectedFoodId(selectedFoodId === item.id ? '' : item.id)}
+              key={item.scanKey}
+              className={`select-chip ${selectedFoodId === item.scanKey ? 'active' : ''}`}
+              onClick={() => setSelectedFoodId(selectedFoodId === item.scanKey ? '' : item.scanKey)}
             >
-              <span>{item.emoji}</span> {item.name.split(' ').slice(0, 2).join(' ')}
+              <span>{item.emoji}</span> {item.name.split(' ').slice(0, 2).join(' ')}{item.scanKey.startsWith('drink:') ? ' · Minuman' : ''}
             </button>
           ))}
         </div>
@@ -315,9 +304,9 @@ const Scan = () => {
           className="toggle-drinks-btn" 
           onClick={() => setShowAllFoods((value) => !value)}
         >
-          {showAllFoods ? 'Tampilkan lebih sedikit' : `Tampilkan selengkapnya (${VERIFIED_FOODS.length - 5} lainnya)`}
+          {showAllFoods ? 'Tampilkan lebih sedikit' : `Tampilkan selengkapnya (${SCAN_CATALOG.length - 5} lainnya)`}
         </button>}
-        {normalizedFoodSearch && visibleFoods.length === 0 && <p className="food-search-empty">Makanan belum ada di katalog. Coba kata lain atau gunakan backend scan otomatis.</p>}
+        {normalizedFoodSearch && visibleFoods.length === 0 && <p className="food-search-empty">Belum ada di katalog. Coba kata lain atau gunakan scan otomatis.</p>}
       </div>
       
       <button 
@@ -333,11 +322,11 @@ const Scan = () => {
           <div className="camera-live">
             <video ref={videoRef} className="camera-video" playsInline muted />
             <div className="scan-guide-box guide-green">
-              <span className="guide-label">ARAHKAN KE MAKANAN</span>
+              <span className="guide-label">ARAHKAN KE MAKANAN ATAU MINUMAN</span>
             </div>
             <div className="camera-bar-top">
               <button onClick={toggleFlash} className={`icon-btn ${hasFlash ? 'text-amber' : ''}`} title="Flash">⚡</button>
-              <span className="cam-status">{recognizerReady ? 'KAMERA & SCAN SIAP' : 'KAMERA AKTIF · MENYIAPKAN SCAN'}</span>
+              <span className="cam-status">KAMERA & SCAN SIAP</span>
               <button className="icon-btn" onClick={() => setFacingMode((mode) => mode === 'environment' ? 'user' : 'environment')} title="Ganti kamera">
                 <SwitchCamera size={18} />
               </button>
@@ -371,7 +360,7 @@ const Scan = () => {
             <p className="analysis-error">{cameraError}</p>
             <div className="action-buttons">
               <button className="btn-secondary" onClick={resetScanner}><RotateCcw size={16} /> Foto Ulang</button>
-              <button className="btn-primary" onClick={startAnalysis}><Sparkles size={16} /> Analisa Makanan</button>
+              <button className="btn-primary" onClick={startAnalysis}><Sparkles size={16} /> Analisa Foto</button>
             </div>
           </div>
         )}
@@ -382,7 +371,7 @@ const Scan = () => {
               <div className="scan-line" />
               <Camera size={56} />
             </div>
-            <h3 className="scanning-title">Menganalisa Makanan</h3>
+            <h3 className="scanning-title">Menganalisis Foto</h3>
             <p className="scanning-step">{scanSteps}</p>
             <div className="progress-bar-container">
               <div className="progress-fill" style={{ width: `${progress}%` }} />
@@ -406,10 +395,12 @@ const Scan = () => {
                 <div>
                   <strong>Mengapa diperiksa?</strong>
                   <p>{food.isFood === false
-                    ? 'Objek yang dipindai tidak jelas sebagai makanan. Pastikan Anda memindai makanan yang aman dan sesuai untuk dikonsumsi.'
+                          ? food.isDrink
+                            ? 'Hasil ini adalah estimasi gula dan kalori minuman dari katalog, bukan pembacaan label merek atau uji keamanan.'
+                            : 'Objek yang dipindai tidak jelas sebagai makanan. Pastikan Anda memindai makanan yang aman dan sesuai untuk dikonsumsi.'
                     : food.source === 'browser-vision-prediction'
                       ? 'Ini prediksi visual dari model di browser. Periksa nama makanan agar sesuai dengan foto sebelum memakai informasi gizinya.'
-                      : 'Makanan yang aman sangat penting untuk kesehatan anak selama perjalanan wisata. Ranstal membantu memastikan makanan yang dikonsumsi aman dan bernutrisi.'}</p>
+                      : 'Gunakan hasil katalog sebagai perkiraan gizi. Periksa kembali nama, porsi, bahan, dan label produk sebelum mengambil keputusan konsumsi.'}</p>
                 </div>
               </div>
               <div className="scan-insight-item">
@@ -425,7 +416,7 @@ const Scan = () => {
                 Katalog: {food.status}
               </span>
               <span className="result-badge secondary-badge">
-                {food.isFood === false ? 'Cek ulang' : food.visualAnalysis ? 'Identifikasi Gemini' : food.source === 'browser-vision-prediction' ? 'Prediksi visual' : food.source?.startsWith('Pilihan manual') ? 'Dipilih manual' : 'Data katalog'}
+                {food.isDrink ? 'Estimasi minuman' : food.isFood === false ? 'Cek ulang' : food.visualAnalysis ? 'Identifikasi Gemini' : food.source === 'browser-vision-prediction' ? 'Prediksi visual' : food.source?.startsWith('Pilihan manual') ? 'Dipilih manual' : 'Data katalog'}
               </span>
             </div>
             {food.visualAnalysis && <div className="scan-visual-note"><Sparkles size={17}/><div><strong>Identifikasi visual Gemini · {Math.round(food.visualAnalysis.confidence * 100)}% keyakinan</strong><p>{food.visualAnalysis.visibleCondition || food.visualAnalysis.reason || 'Tidak ada detail visual tambahan.'} Keyakinan AI bukan ukuran akurasi terkalibrasi. Pastikan nama hidangan cocok dengan foto.</p></div></div>}

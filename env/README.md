@@ -10,32 +10,25 @@ This folder contains setup guidance only. Do not put real API keys or passwords 
 
 The root `.env` is ignored by Git. Commit `.env.example` only; it contains variable names and blank placeholders.
 
-## GitHub and deployment
+## Vercel deployment
 
-GitHub does not load environment variables from a repository folder. To configure a GitHub Actions workflow, add values under:
-
-**Repository → Settings → Secrets and variables → Actions**
-
-- Add these names under **Secrets** when a workflow or deployment integration needs them:
+- For the AI scan and chatbot, add these server values in **Vercel → Project Settings → Environment Variables**:
 
   ```text
   GEMINI_API_KEY
   CEREBRAS_API_KEY
   FATSECRET_CLIENT_ID
   FATSECRET_CLIENT_SECRET
-  NEON_DATABASE_URL
   ```
 
-  Add only the names for services you use. Enter each provider's key/credential as the secret value; do not include quotes or commit the value to a file.
-- Use **Variables** only for non-secret settings.
-- A secret is available to a workflow only when that workflow explicitly references it. Never pass a server secret into a `VITE_*` variable: Vite embeds `VITE_*` values in public browser files.
+- Add only keys for providers you use. The values entered as GitHub Actions Secrets do not automatically transfer to Vercel.
+- The frontend calls API routes on the same Vercel domain. Leave `VITE_API_BASE_URL` unset.
+- `GEMINI_API_KEY`, `CEREBRAS_API_KEY`, and `FATSECRET_CLIENT_SECRET` must remain server-side; never rename them to `VITE_*`.
 
-The GitHub Pages workflow publishes a static frontend and does not deploy the functions in `api/`. It passes `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from GitHub Actions Secrets into the build. Those values are included in public browser code and are not server secrets; protect Supabase data with correct Row Level Security policies.
-
-The API routes in `api/` need a backend host such as Vercel. GitHub Pages cannot run them, and the server secrets above are intentionally not passed into the frontend build. To enable those API-backed features, deploy the frontend and API routes to a provider that supports serverless functions and configure the private values in that provider's project settings.
+GitHub Pages publishes static files only and cannot run the functions in `api/`. The Vercel deployment is the live version for AI scanning and chat.
 
 Firebase web configuration and the Supabase anon key are client-side values, not server secrets. Protect their use with Firebase/Supabase security rules and provider-side restrictions. Never put a Supabase `service_role` key in a `VITE_*` variable.
 
-## AyuScan Gemini key
+## API key handling
 
-AyuScan also has an optional in-app Gemini key field. That value is kept in the current browser tab's session storage and sent from the browser directly to Gemini for image analysis. For a deployed public website, prefer a server-side proxy with `GEMINI_API_KEY` configured on the API host; do not enter a personal key on a shared device.
+AyuScan and GastroBot send requests to the server-side API. They do not ask visitors to enter a provider API key; keep all provider credentials in Vercel environment variables.

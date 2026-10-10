@@ -1,4 +1,4 @@
-import { json } from '../_lib/db.js';
+import { json } from '../_lib/http.js';
 import {
   isFatSecretConfigured,
   recognizeImage,
@@ -11,7 +11,7 @@ import { findVerifiedFood, normalizeFoodData, VERIFIED_FOODS } from '../../data/
 import { findVerifiedDrink, VERIFIED_DRINKS } from '../../src/data/verifiedDrinks.js';
 
 const CEREBRAS_URL = 'https://api.cerebras.ai/v1/chat/completions';
-const GEMINI_VISION_MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.6-flash'];
+const GEMINI_VISION_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 const getCerebrasKey = () => globalThis.process?.env?.CEREBRAS_API_KEY || '';
 const getGeminiKey = () => globalThis.process?.env?.GEMINI_API_KEY || '';
 
@@ -28,6 +28,7 @@ const resolveLocalDrink = (value) => {
   if (/(lemon|infused|air lemon)/i.test(normalized)) return VERIFIED_DRINKS.find((drink) => drink.id === 'lemon-water');
   return findVerifiedDrink(value);
 };
+const isDrinkLabel = (value) => /\b(air|jus|juice|teh|kopi|susu|minuman|drink|beverage|soda|sirup|smoothie|es|wedang|oralit)\b/i.test(String(value || ''));
 
 const identifyWithCerebras = async (searchHint) => {
   const apiKey = getCerebrasKey();
@@ -102,10 +103,30 @@ export default async function handler(req, res) {
     return json(res, 405, { ok: false, error: 'Method not allowed' });
   }
 
-  const { image_b64: imageB64, search_hint: searchHint, drink_key: drinkKey } = req.body || {};
+  const { image_b64: imageB64, search_hint: searchHint, catalog_key: catalogKey, drink_key: legacyDrinkKey } = req.body || {};
+  if (typeof imageB64 === 'string' && imageB64.length > 3_700_000) {
+    return json(res, 413, { ok: false, error: 'Foto terlalu besar. Pilih foto dengan resolusi lebih rendah.' });
+  }
 
   try {
-    // 1. Kenali objek secara umum; scan mendukung makanan dan minuman.
+    // A manual catalog choice is definitive and avoids unnecessary image API calls.
+    const [catalogType, catalogId] = String(catalogKey || '').includes(':')
+      ? String(catalogKey).split(':', 2)
+      : ['', String(legacyDrinkKey || catalogKey || '')];
+    const selectedLocalDrink = (catalogType === 'drink' || !catalogType) && catalogId
+      ? VERIFIED_DRINKS.find((drink) => drink.id === catalogId)
+      : null;
+    if (selectedLocalDrink) {
+      return json(res, 200, { ok: true, result: { ...selectedLocalDrink, isDrink: true }, source: 'verified-database' });
+    }
+    const selectedLocalFood = (catalogType === 'food' || !catalogType) && catalogId
+      ? VERIFIED_FOODS.find((food) => food.id === catalogId)
+      : null;
+    if (selectedLocalFood) {
+      return json(res, 200, { ok: true, result: normalizeFoodData({ ...selectedLocalFood, source: 'verified-database' }), source: 'verified-database' });
+    }
+
+    // Identify the photographed food or drink with the server-side Gemini key.
     const visionLabel = imageB64
       ? await identifyImageWithGemini(imageB64).catch((err) => {
         console.warn('Gemini image recognition failed:', err.message);
@@ -113,34 +134,26 @@ export default async function handler(req, res) {
       })
       : null;
 
-    // 2. Pilihan katalog adalah fallback yang pasti untuk makanan maupun minuman.
-    const selectedLocalDrink = drinkKey ? VERIFIED_DRINKS.find((drink) => drink.id === drinkKey) : null;
-    if (selectedLocalDrink) {
-      return json(res, 200, { ok: true, result: selectedLocalDrink, source: 'verified-database' });
-    }
-    const selectedLocalFood = drinkKey ? VERIFIED_FOODS.find((food) => food.id === drinkKey) : null;
-    if (selectedLocalFood) {
-      return json(res, 200, { ok: true, result: normalizeFoodData({ ...selectedLocalFood, source: 'verified-database' }), source: 'verified-database' });
-    }
-
-    // 3. Cocokkan label vision dengan katalog lokal sebelum mencari ke provider eksternal.
     const localByVision = resolveLocalDrink(visionLabel);
     const localFoodByVision = findVerifiedFood(visionLabel || '');
+    if (localByVision && (isDrinkLabel(visionLabel) || localFoodByVision?.category?.toLowerCase() === 'minuman')) {
+      return json(res, 200, { ok: true, result: { ...localByVision, isDrink: true }, source: 'gemini-vision-verified-database' });
+    }
     if (localFoodByVision) {
       return json(res, 200, { ok: true, result: normalizeFoodData({ ...localFoodByVision, source: 'gemini-vision-verified-database' }), source: 'gemini-vision-verified-database' });
     }
     if (localByVision) {
-      return json(res, 200, { ok: true, result: localByVision, source: 'gemini-vision-verified-database' });
+      return json(res, 200, { ok: true, result: { ...localByVision, isDrink: true }, source: 'gemini-vision-verified-database' });
     }
 
-    // 4. Data lokal dari petunjuk nama dipakai sebelum FatSecret.
+    // Use verified local data before calling external nutrition providers.
     const hint = searchHint || visionLabel || '';
     const localHintDrink = resolveLocalDrink(hint);
     if (localHintDrink) {
-      return json(res, 200, { ok: true, result: localHintDrink, source: 'verified-database' });
+      return json(res, 200, { ok: true, result: { ...localHintDrink, isDrink: true }, source: 'verified-database' });
     }
 
-    // 5. FatSecret Image Recognition untuk produk yang belum ada di database lokal.
+    // FatSecret image recognition is a fallback for unrecognized catalog items.
     if (imageB64 && isFatSecretConfigured()) {
       try {
         const recognized = await recognizeImage(imageB64, { region: 'ID', language: 'id' });
@@ -155,7 +168,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 6. FatSecret search by hint/name. Kegagalan API tidak boleh menghentikan fallback lokal.
+    // FatSecret search by hint/name.
     if (hint && isFatSecretConfigured()) {
       try {
         const aiName = await identifyWithCerebras(hint).catch(() => null) || hint;
@@ -170,11 +183,11 @@ export default async function handler(req, res) {
       } catch (err) { console.warn('FatSecret search failed; using local fallback:', err.message); }
     }
 
-    // 7. Database lokal terverifikasi sebagai fallback terakhir.
+    // Fall back to the verified local drink catalog.
     if (hint) {
       const local = resolveLocalDrink(hint);
       if (local) {
-        return json(res, 200, { ok: true, result: local, source: 'verified-database' });
+        return json(res, 200, { ok: true, result: { ...local, isDrink: true }, source: 'verified-database' });
       }
     }
 

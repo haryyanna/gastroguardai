@@ -1,8 +1,12 @@
-import { json } from '../_lib/db.js';
+import { json } from '../_lib/http.js';
 
 const CEREBRAS_URL = 'https://api.cerebras.ai/v1/chat/completions';
 const DEFAULT_MODEL = 'gpt-oss-120b';
-const GEMINI_MODEL = 'gemini-3.5-flash-lite';
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const MAX_MESSAGES = 20;
+const MAX_MESSAGE_TEXT_LENGTH = 4000;
+const MAX_CONVERSATION_TEXT_LENGTH = 16000;
+const MAX_RESPONSE_TOKENS = 1000;
 const CHAT_REFERENCES = '\n\nSumber kesehatan perjalanan:\n- CDC Yellow Book, Travelers’ Diarrhea: https://www.cdc.gov/yellow-book/hcp/preparing-international-travelers/travelers-diarrhea.html\n- CDC Yellow Book, Food and Water Precautions for Travelers: https://www.cdc.gov/yellow-book/hcp/preparing-international-travelers/food-and-water-precautions-for-travelers.html';
 
 const normalizeMessagesText = (messages) => {
@@ -16,7 +20,7 @@ const normalizeMessagesText = (messages) => {
 };
 
 const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7 }) => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = globalThis.process?.env?.GEMINI_API_KEY;
   if (!apiKey) return null;
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
@@ -46,7 +50,7 @@ const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7 }) => 
 };
 
 const callCerebras = async ({ messages, max_tokens = 600, temperature = 0.7, model = DEFAULT_MODEL }) => {
-  const apiKey = process.env.CEREBRAS_API_KEY;
+  const apiKey = globalThis.process?.env?.CEREBRAS_API_KEY;
   if (!apiKey) return null;
 
   const response = await fetch(CEREBRAS_URL, {
@@ -73,15 +77,36 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { messages, max_tokens = 600, temperature = 0.7, model = DEFAULT_MODEL } = req.body || {};
+    const { messages, max_tokens = 600, temperature = 0.7 } = req.body || {};
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return json(res, 400, { ok: false, error: 'messages wajib diisi' });
     }
 
-    if (process.env.GEMINI_API_KEY) {
+    const conversationTextLength = messages.reduce((total, message) => {
+      const content = typeof message?.content === 'string'
+        ? message.content
+        : Array.isArray(message?.content)
+          ? message.content.map((part) => part?.text || '').join('\n')
+          : '';
+      return total + content.length;
+    }, 0);
+    if (
+      messages.length > MAX_MESSAGES ||
+      messages.some((message) => !['system', 'user', 'assistant'].includes(message?.role) ||
+        (typeof message?.content !== 'string' && !Array.isArray(message?.content)) ||
+        (typeof message.content === 'string' && message.content.length > MAX_MESSAGE_TEXT_LENGTH)) ||
+      conversationTextLength > MAX_CONVERSATION_TEXT_LENGTH
+    ) {
+      return json(res, 413, { ok: false, error: 'Percakapan terlalu panjang. Mulai percakapan baru atau ringkas pesan.' });
+    }
+
+    const safeMaxTokens = Math.min(MAX_RESPONSE_TOKENS, Math.max(100, Number(max_tokens) || 600));
+    const safeTemperature = Math.min(1, Math.max(0, Number(temperature) || 0));
+
+    if (globalThis.process?.env?.GEMINI_API_KEY) {
       try {
-        const geminiResult = await callGemini({ messages, max_tokens, temperature });
+        const geminiResult = await callGemini({ messages, max_tokens: safeMaxTokens, temperature: safeTemperature });
         if (geminiResult?.ok) {
           return json(res, 200, geminiResult);
         }
@@ -90,7 +115,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const cerebrasResult = await callCerebras({ messages, max_tokens, temperature, model });
+    const cerebrasResult = await callCerebras({ messages, max_tokens: safeMaxTokens, temperature: safeTemperature, model: DEFAULT_MODEL });
     if (cerebrasResult?.ok) {
       return json(res, 200, cerebrasResult);
     }

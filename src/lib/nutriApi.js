@@ -29,10 +29,10 @@ export const chatCompletion = async ({ messages, max_tokens = 600, temperature =
   });
 };
 
-export const analyzeDrinkImage = async ({ imageB64, searchHint, drinkKey }) => {
+export const analyzeFoodOrDrinkImage = async ({ imageB64, searchHint, catalogKey }) => {
   return request('/api/fatsecret/analyze', {
     method: 'POST',
-    body: { image_b64: imageB64, search_hint: searchHint, drink_key: drinkKey }
+    body: { image_b64: imageB64, search_hint: searchHint, catalog_key: catalogKey }
   });
 };
 

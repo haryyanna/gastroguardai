@@ -68,7 +68,7 @@ export default function GastroBot({ standalone = false }) {
       setMessages(updated);
       storeHistory(updated);
     } catch {
-      const updated = [...outgoing, { id: `${Date.now()}-b`, sender: 'bot', text: localFallback(prompt) }];
+      const updated = [...outgoing, { id: `${Date.now()}-b`, sender: 'bot', text: `AI belum terhubung; berikut panduan awal lokal. ${localFallback(prompt)}` }];
       setMessages(updated);
       storeHistory(updated);
     } finally { setLoading(false); }
