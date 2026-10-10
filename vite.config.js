@@ -4,6 +4,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 import { localApiPlugin } from './vite-plugin-local-api.js'
 
 export default defineConfig({
+  base: './',
   plugins: [react(), localApiPlugin(), viteSingleFile()],
   server: {
     host: '0.0.0.0',
