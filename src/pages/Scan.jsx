@@ -3,7 +3,6 @@ import { Camera, Sparkles, AlertTriangle, RotateCcw, Upload, SwitchCamera, ScanL
 import { Link } from 'react-router-dom';
 import { enqueueSheetsBackup } from '../lib/sheetsBackup';
 import { analyzeFoodOrDrinkImage } from '../lib/nutriApi';
-import { recognizeFoodInBrowser } from '../lib/browserFoodRecognition';
 import { VERIFIED_FOODS, findVerifiedFood, normalizeFoodData } from '../../data/verifiedFoods';
 import { VERIFIED_DRINKS } from '../data/verifiedDrinks';
 import './Scan.css';
@@ -28,26 +27,34 @@ const normalizeScanItem = (item, source) => {
   }
   return normalizeFoodData({ ...item, source });
 };
-const encodeScanImage = (sourceCanvas) => {
+const canvasToDataUrl = (canvas, quality) => new Promise((resolve, reject) => {
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      reject(new Error('Foto tidak dapat dikompres. Coba pilih gambar lain.'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Foto hasil kompresi tidak dapat dibaca.'));
+    reader.readAsDataURL(blob);
+  }, 'image/jpeg', quality);
+});
+const encodeScanImage = async (sourceCanvas) => {
   let width = sourceCanvas.width;
   let height = sourceCanvas.height;
-  const qualities = [0.82, 0.72, 0.62, 0.52];
 
-  for (let resizeAttempt = 0; resizeAttempt < 8; resizeAttempt += 1) {
+  for (let resizeAttempt = 0; resizeAttempt < 3; resizeAttempt += 1) {
+    const scale = Math.min(1, 1024 / Math.max(width, height));
+    width = Math.max(1, Math.round(width * scale));
+    height = Math.max(1, Math.round(height * scale));
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     canvas.getContext('2d').drawImage(sourceCanvas, 0, 0, width, height);
-
-    for (const quality of qualities) {
-      const dataUrl = canvas.toDataURL('image/jpeg', quality);
-      if (dataUrl.length <= MAX_IMAGE_DATA_URL_LENGTH) return dataUrl;
-    }
-
-    if (Math.max(width, height) <= 512) break;
-    const scale = Math.min(0.8, 512 / Math.max(width, height));
-    width = Math.max(1, Math.round(width * scale));
-    height = Math.max(1, Math.round(height * scale));
+    const dataUrl = await canvasToDataUrl(canvas, 0.72);
+    if (dataUrl.length <= MAX_IMAGE_DATA_URL_LENGTH) return dataUrl;
+    width = Math.round(width * 0.7);
+    height = Math.round(height * 0.7);
   }
 
   throw new Error('Foto terlalu besar untuk dianalisis. Pilih foto dengan resolusi lebih rendah.');
@@ -98,14 +105,14 @@ const Scan = () => {
   }, [facingMode, stopCamera]);
   useEffect(() => { startCamera(); return stopCamera; }, [startCamera, stopCamera]);
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     const video = videoRef.current, canvas = canvasRef.current;
     if (!video?.videoWidth || !canvas) return;
-    const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
+    const scale = Math.min(1, 1024 / Math.max(video.videoWidth, video.videoHeight));
     canvas.width = Math.round(video.videoWidth * scale); canvas.height = Math.round(video.videoHeight * scale);
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
     try {
-      setPhoto(encodeScanImage(canvas));
+      setPhoto(await encodeScanImage(canvas));
       stopCamera();
       setCameraState('preview');
     } catch (error) {
@@ -121,11 +128,11 @@ const Scan = () => {
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const image = new Image();
-      image.onload = () => {
+      image.onload = async () => {
         const canvas = document.createElement('canvas');
-        const scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
+        const scale = Math.min(1, 1024 / Math.max(image.naturalWidth, image.naturalHeight));
         canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
         canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
         const context = canvas.getContext('2d');
@@ -134,7 +141,7 @@ const Scan = () => {
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
         setCameraError('');
         try {
-          setPhoto(encodeScanImage(canvas));
+          setPhoto(await encodeScanImage(canvas));
           stopCamera();
           setCameraState('preview');
         } catch (error) {
@@ -187,47 +194,38 @@ const Scan = () => {
     if (!photo) return;
     setCameraState('scanning');
     setProgress(8);
-    const steps = ['Mengirim foto ke server...', 'Mengenali makanan atau minuman...', 'Mencari data gizi...', 'Menyiapkan ringkasan nutrisi...'];
+    const steps = ['Mengirim foto ke server...', 'Gemini mengenali makanan atau minuman...', 'Mencocokkan data gizi...', 'Menyiapkan ringkasan nutrisi...'];
     let index = 0;
-    let usingBrowserRecognition = false;
     setScanSteps(steps[index]);
 
     const timer = window.setInterval(() => {
       index = Math.min(index + 1, steps.length - 1);
-      if (!usingBrowserRecognition) setScanSteps(steps[index]);
+      setScanSteps(steps[index]);
       setProgress((value) => Math.min(value + 16, 88));
     }, 900);
 
     try {
       const selectedFood = SCAN_CATALOG.find((item) => item.scanKey === selectedFoodId);
-      const matchedFood = selectedFood || findVerifiedFood(selectedFoodId || 'makanan');
+      const matchedFood = selectedFood || (selectedFoodId ? findVerifiedFood(selectedFoodId) : null);
       let result = null;
       let analysisError = null;
-      let browserRecognition = null;
-      try {
-        result = await analyzeFoodOrDrinkImage({
-          imageB64: selectedFoodId ? '' : photo,
-          searchHint: matchedFood?.name || '',
-          catalogKey: selectedFoodId
-        });
-      } catch (error) {
-        analysisError = error;
-      }
-      if (!result?.result && !matchedFood) {
+      if (selectedFood) {
+        result = { result: selectedFood, source: 'verified-database' };
+      } else {
         try {
-          usingBrowserRecognition = true;
-          setScanSteps('Memeriksa foto dengan pengenalan di perangkat...');
-          browserRecognition = await recognizeFoodInBrowser(photo, setScanSteps);
+          result = await analyzeFoodOrDrinkImage({
+            imageB64: photo,
+            searchHint: matchedFood?.name || '',
+            catalogKey: selectedFoodId
+          });
         } catch (error) {
-          console.warn('Pengenalan makanan di browser gagal:', error);
+          analysisError = error;
         }
       }
-      const valueToAnalyze = result?.result || matchedFood || browserRecognition?.food;
-      if (!valueToAnalyze && analysisError) {
-        throw new Error(`Foto belum bisa dikenali otomatis. Server scan tidak tersedia (${analysisError.message}); pengenalan di perangkat juga tidak menemukan kecocokan yang cukup jelas. Pastikan koneksi internet aktif, atau pilih jenis makanan secara manual.`);
-      }
+      const valueToAnalyze = result?.result || matchedFood;
+      if (!valueToAnalyze && analysisError) throw analysisError;
       if (!valueToAnalyze) throw new Error('Makanan belum teridentifikasi. Pilih jenis makanan yang paling sesuai, lalu coba lagi.');
-      const source = result?.source || (browserRecognition ? 'browser-vision-prediction' : 'Database Makanan Ranstal');
+      const source = result?.source || 'Database Makanan Ranstal';
       const food = normalizeScanItem(valueToAnalyze, source);
 
       setScannedFood(food);

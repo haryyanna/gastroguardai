@@ -1,6 +1,6 @@
 import { json } from '../_lib/http.js';
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-3.8-flash';
 const MAX_MESSAGES = 20;
 const MAX_MESSAGE_TEXT_LENGTH = 4000;
 const MAX_CONVERSATION_TEXT_LENGTH = 16000;
@@ -27,7 +27,7 @@ const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7 }) => 
     body: JSON.stringify({
       contents: [{ parts: [{ text: normalizeMessagesText(messages) }] }],
       generationConfig: {
-        maxOutputTokens: Math.max(max_tokens, 800),
+        maxOutputTokens: max_tokens,
         temperature
       }
     })

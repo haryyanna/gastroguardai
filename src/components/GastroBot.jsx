@@ -62,13 +62,14 @@ export default function GastroBot({ standalone = false }) {
     storeHistory(outgoing);
     try {
       const history = outgoing.slice(-12).map((message) => ({ role: message.sender === 'user' ? 'user' : 'assistant', content: message.text }));
-      const response = await chatCompletion({ messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...history], max_tokens: 800, temperature: 0.5 });
+      const response = await chatCompletion({ messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...history], max_tokens: 450, temperature: 0.5 });
       const answer = response.content?.trim() || localFallback(prompt);
       const updated = [...outgoing, { id: `${Date.now()}-b`, sender: 'bot', text: answer }];
       setMessages(updated);
       storeHistory(updated);
-    } catch {
-      const updated = [...outgoing, { id: `${Date.now()}-b`, sender: 'bot', text: `AI belum terhubung; berikut panduan awal lokal. ${localFallback(prompt)}` }];
+    } catch (error) {
+      const reason = error instanceof Error ? error.message.slice(0, 180) : 'Koneksi ke Gemini gagal.';
+      const updated = [...outgoing, { id: `${Date.now()}-b`, sender: 'bot', text: `AI Gemini belum dapat merespons (${reason}). Panduan awal: ${localFallback(prompt)}` }];
       setMessages(updated);
       storeHistory(updated);
     } finally { setLoading(false); }
