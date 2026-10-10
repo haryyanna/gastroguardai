@@ -3,7 +3,7 @@ import { ArrowLeft, Maximize2, Minimize2, Send, ShieldCheck, Sparkles } from 'lu
 import { Link } from 'react-router-dom';
 import { chatCompletion } from '../lib/nutriApi';
 
-const SYSTEM_PROMPT = 'Kamu GastroBot, asisten edukasi kesehatan pencernaan bagi pelancong tropis. Jawab bahasa Indonesia yang jelas, hangat, dan praktis (umumnya 3–6 kalimat). Jangan mendiagnosis atau meresepkan obat. Untuk diare, utamakan penggantian cairan dan oralit sesuai petunjuk kemasan. Tegaskan untuk segera mencari tenaga medis bila ada darah pada tinja, demam tinggi, muntah terus hingga tidak bisa minum, tanda dehidrasi, nyeri berat, atau kondisi memburuk. Beri perhatian khusus untuk anak, lansia, ibu hamil, dan penyakit kronis. Herbal bukan pengganti perawatan medis.';
+const SYSTEM_PROMPT = 'Kamu GastroBot, asisten edukasi kesehatan pencernaan bagi pelancong tropis. Jawab dalam bahasa Indonesia yang jelas, hangat, dan praktis. Berikan jawaban cukup lengkap, biasanya 4–7 kalimat: jelaskan inti jawaban, langkah yang bisa dilakukan, dan kapan perlu bantuan medis. Hindari jawaban satu kalimat kecuali pengguna memang memintanya. Jangan mendiagnosis atau meresepkan obat. Untuk diare, utamakan penggantian cairan dan oralit sesuai petunjuk kemasan. Tegaskan untuk segera mencari tenaga medis bila ada darah pada tinja, demam tinggi, muntah terus hingga tidak bisa minum, tanda dehidrasi, nyeri berat, atau kondisi memburuk. Beri perhatian khusus untuk anak, lansia, ibu hamil, dan penyakit kronis. Herbal bukan pengganti perawatan medis. Jika menyebut sumber, cukup tulis satu sumber ringkas yang relevan tanpa daftar panjang URL.';
 const SUGGESTIONS = ['Diare saat perjalanan', 'Cara minum oralit', 'Perut kram'];
 const INITIAL = [{ id: 'welcome', sender: 'bot', text: 'Halo! Saya GastroBot. Ceritakan keluhan, sejak kapan, dan apakah kamu masih bisa minum. Saya akan bantu langkah awal yang aman.' }];
 const chatKey = (username) => username ? `moodify_data_${username}` : 'gastroguard_guest_data';
@@ -62,7 +62,7 @@ export default function GastroBot({ standalone = false }) {
     storeHistory(outgoing);
     try {
       const history = outgoing.slice(-12).map((message) => ({ role: message.sender === 'user' ? 'user' : 'assistant', content: message.text }));
-      const response = await chatCompletion({ messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...history], max_tokens: 450, temperature: 0.5 });
+      const response = await chatCompletion({ messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...history], max_tokens: 700, temperature: 0.5 });
       const answer = response.content?.trim() || localFallback(prompt);
       const updated = [...outgoing, { id: `${Date.now()}-b`, sender: 'bot', text: answer }];
       setMessages(updated);

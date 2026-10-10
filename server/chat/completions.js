@@ -5,7 +5,6 @@ const MAX_MESSAGES = 20;
 const MAX_MESSAGE_TEXT_LENGTH = 4000;
 const MAX_CONVERSATION_TEXT_LENGTH = 16000;
 const MAX_RESPONSE_TOKENS = 1000;
-const CHAT_REFERENCES = '\n\nSumber kesehatan perjalanan:\n- CDC Yellow Book, Travelers’ Diarrhea: https://www.cdc.gov/yellow-book/hcp/preparing-international-travelers/travelers-diarrhea.html\n- CDC Yellow Book, Food and Water Precautions for Travelers: https://www.cdc.gov/yellow-book/hcp/preparing-international-travelers/food-and-water-precautions-for-travelers.html';
 
 const normalizeMessagesText = (messages) => {
   return messages.map((message) => {
@@ -44,7 +43,7 @@ const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7 }) => 
     .trim() || '';
 
   if (!content) throw new Error('Gemini tidak mengembalikan teks.');
-  return { ok: true, content: `${content}${content.toLowerCase().includes('referensi:') ? '' : CHAT_REFERENCES}`, model: GEMINI_MODEL };
+  return { ok: true, content, model: GEMINI_MODEL };
 };
 
 export default async function handler(req, res) {

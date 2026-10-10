@@ -34,27 +34,43 @@ export default function HerbalGuide() {
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [loading, setLoading] = useState(false);
 
+  const buildPlantContext = (prompt) => {
+    const normalizedPrompt = prompt.toLocaleLowerCase('id');
+    const mentionedPlants = PLANTS.filter((plant) =>
+      normalizedPrompt.includes(plant.name.toLocaleLowerCase('id')) ||
+      normalizedPrompt.includes(plant.latin.toLocaleLowerCase('id'))
+    );
+    const catalogSummary = PLANTS
+      .map(({ name, symptom, summary }) => `${name} (${symptom}): ${summary}`)
+      .join('\n');
+    const relevantDetails = mentionedPlants
+      .map(({ name, latin, use, evidence, caution }) => `${name} (${latin}) — Penggunaan: ${use} Bukti: ${evidence} Perhatian: ${caution}`)
+      .join('\n');
+    return `${catalogSummary}${relevantDetails ? `\nRincian tanaman yang ditanyakan:\n${relevantDetails}` : ''}`;
+  };
+
   const ask = async (event) => {
     event.preventDefault();
-    const prompt = question.trim();
+    const prompt = question.trim().slice(0, 1000);
     if (!prompt || loading) return;
     const nextMessages = [...messages, { role: 'user', content: prompt }];
     setMessages(nextMessages);
     setQuestion('');
     setLoading(true);
     try {
-      const context = PLANTS.map(({ name, latin, summary, use, evidence, caution }) => `${name} (${latin}): ${summary} Penggunaan: ${use} Bukti: ${evidence} Kehati-hatian: ${caution}`).join('\n');
+      const context = buildPlantContext(prompt);
       const response = await chatCompletion({
         messages: [
-          { role: 'system', content: `Kamu adalah edukator kearifan lokal untuk kesehatan pencernaan. Jawab dalam bahasa Indonesia sesuai pertanyaan, ringkas namun berguna. Bedakan penggunaan tradisional dari bukti klinis; jangan mendiagnosis, menentukan dosis terapi, atau menyarankan herbal sebagai pengganti perawatan. Prioritaskan oralit saat diare. Sarankan pertolongan medis untuk darah pada tinja, dehidrasi, demam tinggi, muntah terus, nyeri berat, atau kondisi memburuk. Data tanaman yang tersedia:\n${context}` },
-          ...nextMessages.slice(-10),
+          { role: 'system', content: `Kamu edukator kearifan lokal untuk kesehatan pencernaan. Jawab bahasa Indonesia dengan 3–5 kalimat yang langsung menjawab dan memberi langkah praktis. Bedakan penggunaan tradisional dari bukti klinis. Jangan mendiagnosis, menentukan dosis terapi, atau menyarankan herbal sebagai pengganti perawatan. Prioritaskan oralit saat diare. Sarankan pertolongan medis untuk darah pada tinja, dehidrasi, demam tinggi, muntah terus, nyeri berat, atau kondisi memburuk. Jika menyebut sumber, cukup satu sumber ringkas tanpa daftar URL panjang. Informasi tanaman:\n${context}` },
+          ...nextMessages.slice(-6),
         ],
-        max_tokens: 600,
+        max_tokens: 550,
         temperature: 0.35,
       });
       setMessages([...nextMessages, { role: 'assistant', content: response.content?.trim() || localAnswer(prompt) }]);
-    } catch {
-      setMessages([...nextMessages, { role: 'assistant', content: `AI belum terhubung; berikut panduan offline yang relevan. ${localAnswer(prompt)}` }]);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message.slice(0, 160) : 'Koneksi Gemini gagal.';
+      setMessages([...nextMessages, { role: 'assistant', content: `AI belum dapat merespons (${reason}). Panduan lokal: ${localAnswer(prompt)}` }]);
     } finally {
       setLoading(false);
     }
@@ -78,7 +94,7 @@ export default function HerbalGuide() {
     <section className="gg-herbal-chat gg-card" aria-label="Tanya GastroBot tentang tanaman herbal">
       <div className="gg-herbal-chat-title"><span><Sparkles size={17}/></span><div><b>Tanya seputar kearifan lokal</b><small>Jawaban disesuaikan dengan pertanyaan dan panduan keamanan.</small></div></div>
       <div className="gg-herbal-chat-log" role="log" aria-live="polite">{messages.slice(-8).map((message, index) => <p className={`gg-herbal-chat-message ${message.role}`} key={`${index}-${message.content}`}>{message.content}</p>)}{loading && <p className="gg-herbal-chat-message assistant">Sedang menyiapkan jawaban…</p>}</div>
-      <form className="gg-herbal-chat-form" onSubmit={ask}><MessageCircle size={17}/><input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Contoh: apakah jahe membantu mual?" aria-label="Tanya tentang tanaman herbal"/><button disabled={!question.trim() || loading} aria-label="Kirim pertanyaan"><Send size={16}/></button></form>
+      <form className="gg-herbal-chat-form" onSubmit={ask}><MessageCircle size={17}/><input value={question} maxLength={1000} onChange={(event) => setQuestion(event.target.value)} placeholder="Contoh: apakah jahe membantu mual?" aria-label="Tanya tentang tanaman herbal"/><button disabled={!question.trim() || loading} aria-label="Kirim pertanyaan"><Send size={16}/></button></form>
     </section>
   </div>;
 }
