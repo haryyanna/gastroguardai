@@ -34,7 +34,7 @@ const Journal = () => {
             return {
                 emotion: 'AI belum tersedia',
                 summary: 'Jurnalmu tetap dapat disimpan, tetapi refleksi AI belum berhasil dibuat.',
-                advice: 'Periksa konfigurasi API server (GEMINI_API_KEY atau CEREBRAS_API_KEY) dan coba lagi nanti.'
+                advice: 'Periksa konfigurasi API server (GEMINI_API_KEY) dan coba lagi nanti.'
             };
         }
     };

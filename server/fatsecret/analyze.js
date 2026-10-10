@@ -10,9 +10,7 @@ import {
 import { findVerifiedFood, normalizeFoodData, VERIFIED_FOODS } from '../../data/verifiedFoods.js';
 import { findVerifiedDrink, VERIFIED_DRINKS } from '../../src/data/verifiedDrinks.js';
 
-const CEREBRAS_URL = 'https://api.cerebras.ai/v1/chat/completions';
 const GEMINI_VISION_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
-const getCerebrasKey = () => globalThis.process?.env?.CEREBRAS_API_KEY || '';
 const getGeminiKey = () => globalThis.process?.env?.GEMINI_API_KEY || '';
 
 const cleanVisionLabel = (value) => String(value || '')
@@ -29,34 +27,6 @@ const resolveLocalDrink = (value) => {
   return findVerifiedDrink(value);
 };
 const isDrinkLabel = (value) => /\b(air|jus|juice|teh|kopi|susu|minuman|drink|beverage|soda|sirup|smoothie|es|wedang|oralit)\b/i.test(String(value || ''));
-
-const identifyWithCerebras = async (searchHint) => {
-  const apiKey = getCerebrasKey();
-  if (!apiKey || !searchHint) return null;
-
-  const response = await fetch(CEREBRAS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'gpt-oss-120b',
-      messages: [
-        {
-          role: 'system',
-          content: 'Kamu ahli identifikasi minuman. Berdasarkan petunjuk, jawab HANYA dengan nama minuman dalam bahasa Indonesia/Inggris yang paling mungkin (max 5 kata). Contoh: "boba milk tea", "air kelapa", "es kopi susu".'
-        },
-        { role: 'user', content: searchHint }
-      ],
-      max_tokens: 30,
-      temperature: 0.2
-    })
-  });
-
-  const data = await response.json();
-  return data?.choices?.[0]?.message?.content?.trim() || null;
-};
 
 const identifyImageWithGemini = async (imageB64) => {
   const apiKey = getGeminiKey();
@@ -171,13 +141,12 @@ export default async function handler(req, res) {
     // FatSecret search by hint/name.
     if (hint && isFatSecretConfigured()) {
       try {
-        const aiName = await identifyWithCerebras(hint).catch(() => null) || hint;
-        const results = await searchFoods(aiName, { region: 'ID', language: 'id', maxResults: 5 });
+        const results = await searchFoods(hint, { region: 'ID', language: 'id', maxResults: 5 });
         for (const item of results) {
           try {
             const food = await getFoodById(item.food_id, { region: 'ID', language: 'id' });
             const parsed = foodToNutritionResult(food);
-            if (parsed) return json(res, 200, { ok: true, result: parsed, source: 'fatsecret-search', query: aiName });
+            if (parsed) return json(res, 200, { ok: true, result: parsed, source: 'fatsecret-search', query: hint });
           } catch { /* coba hasil berikutnya */ }
         }
       } catch (err) { console.warn('FatSecret search failed; using local fallback:', err.message); }

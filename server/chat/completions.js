@@ -1,7 +1,5 @@
 import { json } from '../_lib/http.js';
 
-const CEREBRAS_URL = 'https://api.cerebras.ai/v1/chat/completions';
-const DEFAULT_MODEL = 'gpt-oss-120b';
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const MAX_MESSAGES = 20;
 const MAX_MESSAGE_TEXT_LENGTH = 4000;
@@ -49,28 +47,6 @@ const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7 }) => 
   return { ok: true, content: `${content}${content.toLowerCase().includes('referensi:') ? '' : CHAT_REFERENCES}`, model: GEMINI_MODEL };
 };
 
-const callCerebras = async ({ messages, max_tokens = 600, temperature = 0.7, model = DEFAULT_MODEL }) => {
-  const apiKey = globalThis.process?.env?.CEREBRAS_API_KEY;
-  if (!apiKey) return null;
-
-  const response = await fetch(CEREBRAS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({ model, messages, max_tokens, temperature })
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message || data?.message || 'Cerebras API error');
-  }
-
-  const content = data?.choices?.[0]?.message?.content || '';
-  return { ok: true, content: `${content}${content.toLowerCase().includes('referensi:') ? '' : CHAT_REFERENCES}`, model: data?.model || model };
-};
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return json(res, 405, { ok: false, error: 'Method not allowed' });
@@ -104,23 +80,12 @@ export default async function handler(req, res) {
     const safeMaxTokens = Math.min(MAX_RESPONSE_TOKENS, Math.max(100, Number(max_tokens) || 600));
     const safeTemperature = Math.min(1, Math.max(0, Number(temperature) || 0));
 
-    if (globalThis.process?.env?.GEMINI_API_KEY) {
-      try {
-        const geminiResult = await callGemini({ messages, max_tokens: safeMaxTokens, temperature: safeTemperature });
-        if (geminiResult?.ok) {
-          return json(res, 200, geminiResult);
-        }
-      } catch (error) {
-        console.warn('Gemini failed, falling back to Cerebras:', error.message);
-      }
+    if (!globalThis.process?.env?.GEMINI_API_KEY) {
+      return json(res, 503, { ok: false, error: 'GEMINI_API_KEY belum dikonfigurasi.' });
     }
 
-    const cerebrasResult = await callCerebras({ messages, max_tokens: safeMaxTokens, temperature: safeTemperature, model: DEFAULT_MODEL });
-    if (cerebrasResult?.ok) {
-      return json(res, 200, cerebrasResult);
-    }
-
-    return json(res, 503, { ok: false, error: 'Tidak ada provider AI yang aktif.' });
+    const geminiResult = await callGemini({ messages, max_tokens: safeMaxTokens, temperature: safeTemperature });
+    return json(res, 200, geminiResult);
   } catch (error) {
     return json(res, 500, { ok: false, error: error.message || 'Chat proxy failed' });
   }

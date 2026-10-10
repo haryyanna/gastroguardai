@@ -15,7 +15,7 @@ Untuk Vercel:
 - `VITE_API_BASE_URL` = kosongkan (pakai same-origin)
 - `VITE_SHEETS_WEBHOOK_URL` = URL Apps Script Web App
 - `VITE_SHEETS_SOURCE_LABEL` = `moodify-web`
-- `VITE_CEREBRAS_API_KEY` = key AI kamu
+- `GEMINI_API_KEY` = Gemini API key (server-side only; configure in Vercel Environment Variables)
 
 Untuk lokal (`.env`), isi variabel yang sama.
 

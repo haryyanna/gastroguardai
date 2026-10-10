@@ -16,14 +16,14 @@ The root `.env` is ignored by Git. Commit `.env.example` only; it contains varia
 
   ```text
   GEMINI_API_KEY
-  CEREBRAS_API_KEY
   FATSECRET_CLIENT_ID
   FATSECRET_CLIENT_SECRET
   ```
 
+- GastroBot and image identification use Gemini through `GEMINI_API_KEY`.
 - Add only keys for providers you use. The values entered as GitHub Actions Secrets do not automatically transfer to Vercel.
 - The frontend calls API routes on the same Vercel domain. Leave `VITE_API_BASE_URL` unset.
-- `GEMINI_API_KEY`, `CEREBRAS_API_KEY`, and `FATSECRET_CLIENT_SECRET` must remain server-side; never rename them to `VITE_*`.
+- `GEMINI_API_KEY` and `FATSECRET_CLIENT_SECRET` must remain server-side; never rename them to `VITE_*`.
 
 GitHub Pages publishes static files only and cannot run the functions in `api/`. The Vercel deployment is the live version for AI scanning and chat.
 

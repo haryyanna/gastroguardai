@@ -15,4 +15,4 @@ Untuk sinkron data lintas device (bukan localStorage per browser), lihat panduan
 
 Vercel menjalankan frontend sekaligus fungsi backend pada `api/`, sehingga scan makanan/minuman dan GastroBot dapat memakai API key yang tersimpan di server. Hubungkan repository GitHub ke Vercel, lalu ikuti `VERCEL_CHECKLIST.md` untuk pengaturan environment variables.
 
-Jangan masukkan API key Gemini, Cerebras, atau FatSecret ke variabel `VITE_*`; variabel tersebut akan dipublikasikan ke browser.
+Jangan masukkan API key Gemini atau FatSecret ke variabel `VITE_*`; variabel tersebut akan dipublikasikan ke browser.
