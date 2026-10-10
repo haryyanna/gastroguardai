@@ -1,6 +1,7 @@
 import { json } from '../_lib/http.js';
 
 const GEMINI_MODEL = 'gemini-3.8-flash';
+const GEMINI_FALLBACK_MODEL = 'gemini-2.5-flash-lite';
 const MAX_MESSAGES = 20;
 const MAX_MESSAGE_TEXT_LENGTH = 4000;
 const MAX_CONVERSATION_TEXT_LENGTH = 16000;
@@ -16,11 +17,11 @@ const normalizeMessagesText = (messages) => {
   }).join('\n\n');
 };
 
-const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7 }) => {
+const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7, model = GEMINI_MODEL }) => {
   const apiKey = globalThis.process?.env?.GEMINI_API_KEY;
   if (!apiKey) return null;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -34,7 +35,9 @@ const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7 }) => 
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data?.error?.message || 'Gemini API error');
+    const error = new Error(data?.error?.message || 'Gemini API error');
+    error.status = response.status;
+    throw error;
   }
 
   const content = data?.candidates?.[0]?.content?.parts
@@ -43,7 +46,7 @@ const callGemini = async ({ messages, max_tokens = 600, temperature = 0.7 }) => 
     .trim() || '';
 
   if (!content) throw new Error('Gemini tidak mengembalikan teks.');
-  return { ok: true, content, model: GEMINI_MODEL };
+  return { ok: true, content, model };
 };
 
 export default async function handler(req, res) {
@@ -83,7 +86,19 @@ export default async function handler(req, res) {
       return json(res, 503, { ok: false, error: 'GEMINI_API_KEY belum dikonfigurasi.' });
     }
 
-    const geminiResult = await callGemini({ messages, max_tokens: safeMaxTokens, temperature: safeTemperature });
+    let geminiResult;
+    try {
+      geminiResult = await callGemini({ messages, max_tokens: safeMaxTokens, temperature: safeTemperature });
+    } catch (error) {
+      if (![429, 500, 503, 504].includes(error.status)) throw error;
+      console.warn('Gemini Flash busy; retrying with Gemini Flash-Lite:', error.message);
+      geminiResult = await callGemini({
+        messages,
+        max_tokens: safeMaxTokens,
+        temperature: safeTemperature,
+        model: GEMINI_FALLBACK_MODEL
+      });
+    }
     return json(res, 200, geminiResult);
   } catch (error) {
     return json(res, 500, { ok: false, error: error.message || 'Chat proxy failed' });
