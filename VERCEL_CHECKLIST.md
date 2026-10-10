@@ -6,7 +6,7 @@ Vercel is required for the AI scan and chatbot because it hosts both the static 
 
 1. In Vercel, choose **Add New → Project** and import `haryyanna/gastroguardai`.
 2. Keep the project root at the repository root.
-3. The included `vercel.json` configures the Vite build and `dist` output. Vercel automatically discovers the functions in `api/`.
+3. The included `vercel.json` configures the Vite build and `dist` output. All existing `/api/...` routes are dispatched through one catch-all function in `api/[...route].js`, so the project stays under the Hobby plan's 12-function deployment limit.
 4. Deploy the project. Pushing to `main` will trigger future deployments.
 
 ## 2. Add server environment variables
