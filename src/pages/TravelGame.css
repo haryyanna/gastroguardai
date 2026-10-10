@@ -1,0 +1,316 @@
+.travelgame-container {
+  padding: 24px;
+  min-height: 100vh;
+  padding-top: 100px;
+  background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 50%, #fef3c7 100%);
+}
+
+.travelgame-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.header-icon {
+  width: 60px;
+  height: 60px;
+  background: var(--accent-gradient);
+  border-radius: var(--border-radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: white;
+  box-shadow: var(--shadow-lg);
+}
+
+.travelgame-header h1 {
+  font-size: 28px;
+  font-weight: 800;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 8px;
+  letter-spacing: -0.5px;
+}
+
+.travelgame-header p {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.game-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.score-box, .time-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: white;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-md);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.score-box {
+  color: var(--primary);
+}
+
+.time-box {
+  color: var(--secondary);
+}
+
+.time-box.urgent {
+  color: var(--danger);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.collected-items {
+  background: white;
+  padding: 16px;
+  border-radius: var(--border-radius-md);
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.collected-items span:first-child {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 14px;
+}
+
+.collected-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.collected-icon {
+  font-size: 24px;
+  animation: popIn 0.3s ease-out;
+}
+
+@keyframes popIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.game-area {
+  position: relative;
+  min-height: 400px;
+  background-image:
+    linear-gradient(rgba(240, 253, 250, 0.22), rgba(224, 242, 254, 0.38)),
+    url('../assets/peta bali.webp');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: var(--glass-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+  padding: 20px;
+}
+
+.bali-map-illustration {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.2));
+  pointer-events: none;
+}
+
+.bali-map-illustration::before {
+  content: none;
+}
+
+.map-pin {
+  position: absolute;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: #0f172a;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  background: rgba(255,255,255,0.8);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.pin-gianyar { top: 55%; left: 48%; }
+.pin-badung { top: 38%; left: 60%; }
+.pin-denpasar { top: 55%; left: 63%; }
+.pin-ubud { top: 32%; left: 42%; }
+.pin-kuta { top: 42%; left: 70%; }
+.pin-seminyak { top: 50%; left: 72%; }
+
+.travel-item {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  background: rgba(255,255,255,0.95);
+  border: 2px solid var(--primary-surface);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-md);
+  animation: float 3s ease-in-out infinite;
+  min-width: 86px;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.travel-item:hover {
+  transform: scale(1.1) translateY(-10px);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.travel-item.collected {
+  transform: scale(0);
+  opacity: 0;
+  transition: all 0.3s ease-out;
+}
+
+.item-emoji {
+  font-size: 32px;
+  margin-bottom: 4px;
+}
+
+.item-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-main);
+  text-align: center;
+  margin-bottom: 2px;
+}
+
+.item-region {
+  font-size: 9px;
+  color: #64748b;
+  margin-bottom: 4px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.item-points {
+  font-size: 10px;
+  font-weight: 700;
+  color: #0f172a;
+  background: rgba(224, 242, 254, 0.9);
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+.game-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.overlay-icon {
+  margin-bottom: 24px;
+}
+
+.game-overlay h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0 0 16px;
+}
+
+.game-overlay p {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 20px;
+  max-width: 330px;
+}
+
+.district-preview {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 22px;
+}
+
+.district-preview span {
+  background: rgba(59, 130, 246, 0.08);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.final-score {
+  font-size: 48px;
+  font-weight: 800;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 16px 0;
+}
+
+@media (max-width: 480px) {
+  .travelgame-container {
+    padding: 16px;
+    padding-top: 80px;
+  }
+
+  .travelgame-header h1 {
+    font-size: 24px;
+  }
+
+  .game-area {
+    min-height: 350px;
+  }
+
+  .travel-item {
+    min-width: 70px;
+    padding: 10px;
+  }
+
+  .item-emoji {
+    font-size: 28px;
+  }
+}

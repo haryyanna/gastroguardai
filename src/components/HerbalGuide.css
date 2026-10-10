@@ -1,0 +1,30 @@
+.gg-herbal-guide{display:grid;gap:15px}
+.gg-herb-intro{display:flex;align-items:flex-start;gap:8px;margin:0;color:#718581;font-size:10px;line-height:1.6}
+.gg-herb-intro svg{flex:none;color:#148779;margin-top:1px}
+.gg-herb-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.gg-herb-card{min-width:0}
+.gg-herb-latin{display:block;margin-top:-7px;color:#91a19d;font-family:Georgia,serif;font-size:11px;font-style:italic}
+.gg-herb-card>p{margin-bottom:12px}
+.gg-herb-learn{display:inline-flex;align-items:center;gap:6px;border:1px solid #d4e9e2;border-radius:8px;background:#f3faf7;color:#13776d;padding:8px 10px;font-size:9px;font-weight:800;cursor:pointer}
+.gg-herb-learn:hover{background:#e5f5ef}
+.gg-herb-details{display:grid;gap:9px;margin-top:13px;padding-top:12px;border-top:1px solid #e9f0ed}
+.gg-herb-details>div{display:grid;gap:3px}
+.gg-herb-details b{font-size:9px;color:#49635e}
+.gg-herb-details span{font-size:9px;line-height:1.55;color:#718581}
+.gg-herb-details .gg-herb-caution{display:flex;align-items:flex-start;gap:6px;padding:8px;border-radius:8px;background:#fff8ed;color:#9b7145}
+.gg-herb-details .gg-herb-caution svg{flex:none;margin-top:1px}
+.gg-herbal-chat{display:grid;gap:12px}
+.gg-herbal-chat-title{display:flex;align-items:center;gap:10px}
+.gg-herbal-chat-title>span{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:#e6f7f2;color:#0e887a}
+.gg-herbal-chat-title b,.gg-herbal-chat-title small{display:block}
+.gg-herbal-chat-title b{font-size:11px}
+.gg-herbal-chat-title small{margin-top:3px;color:#8b9995;font-size:8px}
+.gg-herbal-chat-log{display:grid;gap:7px;max-height:220px;overflow:auto}
+.gg-herbal-chat-message{max-width:88%;margin:0;padding:9px 11px;border-radius:12px;background:#f0f7f4;color:#48635d;font-size:9px;line-height:1.6;white-space:pre-wrap}
+.gg-herbal-chat-message.user{justify-self:end;background:#0f766e;color:white}
+.gg-herbal-chat-form{display:flex;align-items:center;gap:9px;min-height:42px;padding:0 10px;border:1px solid #e3eeea;border-radius:11px;color:#7f9590}
+.gg-herbal-chat-form input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#21443e;font:inherit;font-size:10px}
+.gg-herbal-chat-form button{width:30px;height:30px;display:grid;place-items:center;border:0;border-radius:9px;background:#0f887b;color:white;cursor:pointer}
+.gg-herbal-chat-form button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:760px){.gg-herb-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.gg-herb-grid{grid-template-columns:1fr}.gg-herbal-chat-message{max-width:96%}}

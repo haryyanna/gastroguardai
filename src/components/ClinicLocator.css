@@ -1,0 +1,20 @@
+.gg-clinic-locator{position:relative;overflow:hidden;border:1px solid #dcece6!important;background:linear-gradient(145deg,#fff 0%,#f5fbf8 100%)!important}
+.gg-clinic-locator:before{position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#10a48d,#8bd3ae,#f1b770);content:""}
+.gg-clinic-title{align-items:center}
+.gg-clinic-title>span:last-child b{font-size:12px;letter-spacing:-.2px}
+.gg-clinic-title>span:last-child small{font-size:9px;line-height:1.5}
+.gg-location-btn{min-height:43px;justify-content:center;border-radius:11px!important;box-shadow:0 6px 15px #13877725;transition:transform .16s ease,box-shadow .16s ease}
+.gg-location-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 9px 18px #13877735}
+.gg-location-consent{display:block;line-height:1.55}
+.gg-locator-status{padding:10px 12px!important;border:1px solid #e4eee9;border-radius:10px;background:#fbfdfc;line-height:1.5}
+.gg-locator-error{padding:9px 11px;border-radius:9px;background:#fff3ef}
+.gg-leaflet-map{min-height:250px;border:1px solid #dfeae5;border-radius:15px;box-shadow:0 8px 22px #21453e12;overflow:hidden}
+.gg-facility-list{max-height:330px;overflow:auto;padding:2px}
+.gg-facility-row{min-height:54px;margin:5px 0;padding:9px!important;border:1px solid #edf2ef!important;border-radius:11px;background:#fff;transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
+.gg-facility-row:hover{transform:translateY(-1px);border-color:#c8e1d7!important;box-shadow:0 5px 14px #244f4312}
+.gg-facility-info b{font-size:10px}
+.gg-facility-info small{font-size:8px;line-height:1.4}
+.gg-facility-distance{padding:5px 7px;border-radius:99px;background:#eef8f3;color:#158273;font-size:8px;font-weight:800}
+.gg-facility-call,.gg-facility-directions{width:30px;height:30px;display:grid;place-items:center;border-radius:9px!important}
+.gg-locator-emergency{border:1px solid #f3dfd7;border-radius:12px;background:#fff7f3}
+@media(max-width:650px){.gg-leaflet-map{min-height:210px;border-radius:12px}.gg-facility-row{gap:6px;padding:8px!important}.gg-facility-info{min-width:0}.gg-facility-info b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gg-facility-distance{white-space:nowrap}}
