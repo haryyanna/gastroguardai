@@ -5,10 +5,10 @@ import GastroBot from '../components/GastroBot';
 import ClinicLocator from '../components/ClinicLocator';
 import HerbalGuide from '../components/HerbalGuide';
 import GutDefender from '../components/GutDefender';
+import { publicAsset } from '../lib/publicAsset';
 import './Home.css';
 
 const checklistItems = ['Oralit / P3K cerna', 'Air minum kemasan tersegel', 'Obat pribadi & anti-mual', 'Probiotik (opsional)', 'Tisu & hand sanitizer'];
-const publicAsset = (path) => `${import.meta.env.BASE_URL}${path}`;
 
 export default function Home() {
   const navigate = useNavigate();
